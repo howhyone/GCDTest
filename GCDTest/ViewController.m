@@ -9,10 +9,14 @@
 #import "ViewController.h"
 
 @interface ViewController ()
-
+{
+    int ticketCount;
+    dispatch_semaphore_t semaphore;
+}
 @end
 
 @implementation ViewController
+
 
 - (void)viewDidLoad {
     [super viewDidLoad];
@@ -34,15 +38,17 @@
 //    [self groupNotify];    //执行完group中其他所有任务，再执行notify中的任务
 //    [self groupWait];        // dispatch_group_wait 等wait前面的任务都执行结束再执行wait后面的任务，这也是和groupNotify的区别
 //    [self groupEnterAndLeave];  //dispatch_group_enter 向group中添加任务，任务执行完毕，dispatch_group_leave
-    [self groupDispatchSemaphore];
+//    [self groupDispatchSemaphore];
+//    [self initTicketStatusNotSave];
     
 //    [self mainQueueAndMainThread];
+    [self once];
 }
 #pragma mark ------- dispatch_semaphore GCD信号量
 -(void)groupDispatchSemaphore
 {
     NSLog(@"enter groupDispatchSemaphore");
-    dispatch_queue_t queue = dispatch_queue_create(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+    dispatch_queue_t queue = dispatch_queue_create(0, DISPATCH_QUEUE_PRIORITY_DEFAULT);
     dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
     __block int number = 0;
     dispatch_async(queue, ^{
@@ -54,6 +60,40 @@
     });
     dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
     NSLog(@"2---------=======%d",number);
+}
+#pragma mark --------- 线程安全，卖火车票问题
+-(void)initTicketStatusNotSave
+{
+    NSLog(@"enter initTicketStatusNotSave");
+    ticketCount = 50;
+    dispatch_queue_t queue1 = dispatch_queue_create("queue1", DISPATCH_QUEUE_PRIORITY_DEFAULT);
+    semaphore = dispatch_semaphore_create(1);
+    dispatch_queue_t queue2 = dispatch_queue_create("queue2", DISPATCH_QUEUE_PRIORITY_DEFAULT);
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(queue1, ^{
+        
+        [weakSelf saleTicketNotSafe];
+    });
+    dispatch_async(queue2, ^{
+        [weakSelf saleTicketNotSafe];
+    });
+    
+}
+-(void)saleTicketNotSafe{
+    while (1) {
+        if (ticketCount > 0) {
+            ticketCount --;
+            dispatch_semaphore_wait(semaphore,DISPATCH_TIME_FOREVER);
+            NSLog(@"%@", [NSString stringWithFormat:@"剩余票数：%d 窗口：%@", ticketCount, [NSThread currentThread]]);
+            [NSThread sleepForTimeInterval:1];
+            dispatch_semaphore_signal(semaphore);
+        }
+        else{
+        NSLog(@"所有火车票已经卖完了，关闭售票窗口");
+            dispatch_semaphore_signal(semaphore);
+            break;
+    }
+  }
 }
 #pragma mark --------- dispatch_group_enter, dispatch_group_leabe
 -(void)groupEnterAndLeave
@@ -143,13 +183,16 @@
 }
 
 #pragma mark ------ 只执行一次
+//修改oncetoken值实现的，为0时 可以访问block 内容，正在s执行block 内容 once为0和-1外的任意值，其他线程等待状态， 执行外block oncetoken修改值为-1，跳过block不执行block 内容
 -(void)once
 {
     static dispatch_once_t onceToken;
+    NSLog(@"onceToken is ======== %ld",onceToken);
     dispatch_once(&onceToken, ^{
+        NSLog(@"onceToken22 is ======== %ld",onceToken);
         NSLog(@"9 1111111111 %@",[NSThread currentThread]);
     });
-    
+    NSLog(@"onceToken333 is ======== %ld",onceToken);
 }
 
 #pragma mark ----延时执行
