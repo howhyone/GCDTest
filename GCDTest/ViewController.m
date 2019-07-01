@@ -38,11 +38,11 @@
 //    [self groupNotify];    //执行完group中其他所有任务，再执行notify中的任务
 //    [self groupWait];        // dispatch_group_wait 等wait前面的任务都执行结束再执行wait后面的任务，这也是和groupNotify的区别
 //    [self groupEnterAndLeave];  //dispatch_group_enter 向group中添加任务，任务执行完毕，dispatch_group_leave
-//    [self groupDispatchSemaphore];
+    [self groupDispatchSemaphore];
 //    [self initTicketStatusNotSave];
     
 //    [self mainQueueAndMainThread];
-    [self once];
+//    [self once];
 }
 #pragma mark ------- dispatch_semaphore GCD信号量
 -(void)groupDispatchSemaphore
@@ -60,6 +60,22 @@
     });
     dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
     NSLog(@"2---------=======%d",number);
+    
+// dispatch_semaphore_create中的参数 代表起始的信号量数目 但为0时，先调用dispatch_semaphore_wait 方法会造成 线程堵塞
+    dispatch_semaphore_t semaphore1 =  dispatch_semaphore_create(1);
+    dispatch_queue_t queue1 = dispatch_get_main_queue();
+    dispatch_semaphore_wait(semaphore1, DISPATCH_TIME_FOREVER);
+
+    for (int i = 0; i < 50; i++) {
+        dispatch_semaphore_signal(semaphore1);
+        dispatch_async(queue1, ^{
+            NSLog(@"hhhh");
+            sleep(2);
+        });
+
+    }
+
+    
 }
 #pragma mark --------- 线程安全，卖火车票问题
 -(void)initTicketStatusNotSave
